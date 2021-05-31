@@ -23,6 +23,19 @@
      ```
      nmap 192.168.X.XX
      ```
+     После это мы увидим следующее:
+     ```
+     Nmap scan report for 192.168.56.XX
+	  Host is up (0.0010s latency).
+     Not shown: 994 closed ports
+     PORT    STATE SERVICE
+     21/tcp  open  ftp
+     22/tcp  open  ssh
+     80/tcp  open  http
+     143/tcp open  imap
+     443/tcp open  https
+     993/tcp open  imaps
+     ```
      
      
      
