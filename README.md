@@ -26,7 +26,7 @@
      После это мы увидим следующее:
      ```
      Nmap scan report for 192.168.56.XX
-	  Host is up (0.0010s latency).
+     Host is up (0.0010s latency).
      Not shown: 994 closed ports
      PORT    STATE SERVICE
      21/tcp  open  ftp
